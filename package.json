@@ -13,7 +13,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run src",
     "test:int": "vitest run tests/integration",
-    "db:up": "docker compose up -d --wait"
+    "db:up": "docker compose up -d --wait",
+    "db:init": "node --experimental-strip-types src/server/db/init.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "node --experimental-strip-types src/server/db/seed.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "0.9.1",
