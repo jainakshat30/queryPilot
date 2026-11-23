@@ -1,7 +1,7 @@
 export interface GeneratedSqlResponse {
-    sql: string,
-    explaination: string,
-    tableUsed: string[]
+    sql: string;
+    explanation: string;
+    tablesUsed: string[];
 }
 
 export const SCHEMA_CONTEXT = `

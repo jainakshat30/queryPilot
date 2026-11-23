@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import * as schema from "./schema.ts";
+import * as schema from "../src/server/db/schema.ts";
 
 if (!process.env.POSTGRES_PASSWORD) {
   process.loadEnvFile?.(".env");
@@ -61,11 +61,11 @@ async function seed() {
       { categoryId: 1, name: "Noise Cancelling Headphones", sku: "ELEC-001", price: "249.99", stockQuantity: 45 },
       { categoryId: 1, name: "Mechanical Gaming Keyboard", sku: "ELEC-002", price: "129.50", stockQuantity: 8 },
       { categoryId: 1, name: "Ultra-Wide Monitor 34-inch", sku: "ELEC-003", price: "499.00", stockQuantity: 14 },
-      { categoryId: 1, name: "Wireless Ergonomic Mouse", sku: "ELEC-004", price: "59.99", stockQuantity: 0 }, // Out of stock!
+      { categoryId: 1, name: "Wireless Ergonomic Mouse", sku: "ELEC-004", price: "59.99", stockQuantity: 0 },
       // Apparel
       { categoryId: 2, name: "Merino Wool Sweater", sku: "APP-001", price: "89.00", stockQuantity: 30 },
       { categoryId: 2, name: "Running Shoes Pro", sku: "APP-002", price: "135.00", stockQuantity: 12 },
-      { categoryId: 2, name: "Waterproof Rain Jacket", sku: "APP-003", price: "110.00", stockQuantity: 5 }, // Low stock!
+      { categoryId: 2, name: "Waterproof Rain Jacket", sku: "APP-003", price: "110.00", stockQuantity: 5 },
       // Home & Kitchen
       { categoryId: 3, name: "Pour-Over Coffee Maker", sku: "HOME-001", price: "42.00", stockQuantity: 50 },
       { categoryId: 3, name: "Cast Iron Skillet 12-inch", sku: "HOME-002", price: "49.95", stockQuantity: 22 },
@@ -75,7 +75,7 @@ async function seed() {
       { categoryId: 4, name: "The Pragmatic Programmer", sku: "BOOK-002", price: "39.99", stockQuantity: 60 },
       // Sports
       { categoryId: 5, name: "Yoga Mat Extra Thick", sku: "SPT-001", price: "28.50", stockQuantity: 75 },
-      { categoryId: 5, name: "Adjustable Dumbbell Set", sku: "SPT-002", price: "299.00", stockQuantity: 4 }, // Low stock!
+      { categoryId: 5, name: "Adjustable Dumbbell Set", sku: "SPT-002", price: "299.00", stockQuantity: 4 },
     ])
     .returning();
   console.log(`✓ Inserted ${insertedProducts.length} products`);
@@ -93,7 +93,7 @@ async function seed() {
       { name: "George Clark", email: "george@example.com", city: "Miami", state: "FL" },
       { name: "Hannah Abbott", email: "hannah@example.com", city: "Boston", state: "MA" },
       { name: "Ian Malcolm", email: "ian@example.com", city: "Austin", state: "TX" },
-      { name: "Julia Roberts", email: "julia@example.com", city: "Denver", state: "CO" }, // Inactive customer (0 orders)
+      { name: "Julia Roberts", email: "julia@example.com", city: "Denver", state: "CO" },
     ])
     .returning();
   console.log(`✓ Inserted ${insertedCustomers.length} customers`);
@@ -105,34 +105,17 @@ async function seed() {
   const insertedOrders = await db
     .insert(schema.orders)
     .values([
-      // Alice (Customer 1) - High value repeat buyer
       { customerId: 1, status: "delivered", totalAmount: "748.99", orderDate: daysAgo(45) },
       { customerId: 1, status: "delivered", totalAmount: "129.50", orderDate: daysAgo(10) },
       { customerId: 1, status: "processing", totalAmount: "45.00", orderDate: daysAgo(1) },
-
-      // Bob (Customer 2)
       { customerId: 2, status: "delivered", totalAmount: "224.00", orderDate: daysAgo(20) },
-
-      // Charlie (Customer 3)
       { customerId: 3, status: "cancelled", totalAmount: "499.00", orderDate: daysAgo(15) },
       { customerId: 3, status: "delivered", totalAmount: "84.99", orderDate: daysAgo(5) },
-
-      // Diana (Customer 4)
       { customerId: 4, status: "delivered", totalAmount: "327.50", orderDate: daysAgo(30) },
-
-      // Evan (Customer 5)
       { customerId: 5, status: "shipped", totalAmount: "299.00", orderDate: daysAgo(3) },
-
-      // Fiona (Customer 6)
       { customerId: 6, status: "pending", totalAmount: "89.00", orderDate: daysAgo(0) },
-
-      // George (Customer 7)
       { customerId: 7, status: "delivered", totalAmount: "161.99", orderDate: daysAgo(60) },
-
-      // Hannah (Customer 8)
       { customerId: 8, status: "cancelled", totalAmount: "135.00", orderDate: daysAgo(8) },
-
-      // Ian (Customer 9)
       { customerId: 9, status: "delivered", totalAmount: "558.99", orderDate: daysAgo(25) },
     ])
     .returning();
@@ -140,45 +123,22 @@ async function seed() {
 
   // 6. Order Items
   await db.insert(schema.orderItems).values([
-    // Order 1 (Alice): Headphones + Monitor
     { orderId: 1, productId: 1, quantity: 1, unitPrice: "249.99" },
     { orderId: 1, productId: 3, quantity: 1, unitPrice: "499.00" },
-
-    // Order 2 (Alice): Keyboard
     { orderId: 2, productId: 2, quantity: 1, unitPrice: "129.50" },
-
-    // Order 3 (Alice): Book
     { orderId: 3, productId: 11, quantity: 1, unitPrice: "45.00" },
-
-    // Order 4 (Bob): Shoes + Wool Sweater
     { orderId: 4, productId: 6, quantity: 1, unitPrice: "135.00" },
     { orderId: 4, productId: 5, quantity: 1, unitPrice: "89.00" },
-
-    // Order 5 (Charlie): Monitor (cancelled)
     { orderId: 5, productId: 3, quantity: 1, unitPrice: "499.00" },
-
-    // Order 6 (Charlie): Book + Coffee Maker
     { orderId: 6, productId: 12, quantity: 1, unitPrice: "39.99" },
     { orderId: 6, productId: 8, quantity: 1, unitPrice: "42.00" },
-
-    // Order 7 (Diana): Dumbbells + Yoga Mat
     { orderId: 7, productId: 14, quantity: 1, unitPrice: "299.00" },
     { orderId: 7, productId: 13, quantity: 1, unitPrice: "28.50" },
-
-    // Order 8 (Evan): Dumbbells
     { orderId: 8, productId: 14, quantity: 1, unitPrice: "299.00" },
-
-    // Order 9 (Fiona): Sweater
     { orderId: 9, productId: 5, quantity: 1, unitPrice: "89.00" },
-
-    // Order 10 (George): Coffee Maker + Air Fryer
     { orderId: 10, productId: 8, quantity: 1, unitPrice: "42.00" },
     { orderId: 10, productId: 10, quantity: 1, unitPrice: "119.99" },
-
-    // Order 11 (Hannah): Running shoes (cancelled)
     { orderId: 11, productId: 6, quantity: 1, unitPrice: "135.00" },
-
-    // Order 12 (Ian): Headphones + Dumbbells
     { orderId: 12, productId: 1, quantity: 1, unitPrice: "249.99" },
     { orderId: 12, productId: 14, quantity: 1, unitPrice: "299.00" },
   ]);

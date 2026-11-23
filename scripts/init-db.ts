@@ -1,7 +1,8 @@
-import {Client} from "pg"
+import { Client } from "pg";
 
-if(!process.env.POSTGRES_PASSWORD){
-    process.loadEnvFile?.(".env")
+// 1. Load .env if not already in environment
+if (!process.env.POSTGRES_PASSWORD) {
+  process.loadEnvFile?.(".env");
 }
 
 function escapeSqlString(str: string): string {
@@ -20,6 +21,7 @@ async function run() {
   }
 
   console.log("Connecting as postgres superuser...");
+
   const rootClient = new Client({
     host,
     port,
@@ -27,7 +29,9 @@ async function run() {
     password: superuserPassword,
     database: "postgres",
   });
+
   await rootClient.connect();
+
   try {
     // 2. Create databases if they don't exist
     for (const dbName of ["qp_sales", "qp_app"]) {
@@ -42,11 +46,13 @@ async function run() {
         console.log(`- Database already exists: ${dbName}`);
       }
     }
+
     // 3. Create or update roles with passwords from .env
-    const roles = [
+    const roles: { name: string; pass: string }[] = [
       { name: "qp_reader", pass: qpReaderPassword },
       { name: "qp_app", pass: qpAppPassword },
     ];
+
     for (const role of roles) {
       await rootClient.query(`
         DO $$
@@ -64,6 +70,7 @@ async function run() {
   } finally {
     await rootClient.end();
   }
+
   // 4. Connect to qp_sales to configure read-only permissions for qp_reader
   const salesClient = new Client({
     host,
@@ -72,6 +79,7 @@ async function run() {
     password: superuserPassword,
     database: "qp_sales",
   });
+
   await salesClient.connect();
   try {
     await salesClient.query(`
@@ -84,6 +92,7 @@ async function run() {
   } finally {
     await salesClient.end();
   }
+
   // 5. Connect to qp_app to configure full permissions for qp_app
   const appClient = new Client({
     host,
@@ -92,6 +101,7 @@ async function run() {
     password: superuserPassword,
     database: "qp_app",
   });
+
   await appClient.connect();
   try {
     await appClient.query(`
@@ -103,8 +113,10 @@ async function run() {
   } finally {
     await appClient.end();
   }
+
   console.log("\n Database initialization complete!");
 }
+
 run().catch((err) => {
   console.error("Initialization failed:", err);
   process.exit(1);
