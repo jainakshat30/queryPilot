@@ -109,11 +109,82 @@ async function generateAnthropicSql(
   return cleanAndParseJsonResponse(rawText);
 }
 
+// ============================================================================
+// REAL GOOGLE GEMINI LLM CALLER (Free Tier Supported)
+// ============================================================================
+
+/**
+ * Calls the Google Gemini API using native Node.js fetch.
+ * Uses Gemini 2.0 Flash (free tier on Google AI Studio).
+ */
+async function generateGeminiSql(
+  question: string,
+  apiKey: string
+): Promise<GeneratedSqlResponse> {
+  const userContent = buildUserPrompt(question);
+
+  // Gemini 3.8 Flash is Google's recommended active model
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      system_instruction: {
+        parts: [{ text: SYSTEM_PROMPT }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userContent }],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.1,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Gemini API request failed with status ${response.status}: ${errorBody}`
+    );
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>;
+      };
+    }>;
+  };
+
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) {
+    throw new Error("Gemini API returned an empty response content");
+  }
+
+  return cleanAndParseJsonResponse(rawText);
+}
+
 export async function generateSql(question: string): Promise<GeneratedSqlResponse> {
   const env = parseEnv();
   // If configured for the fake provider (default), use deterministic offline generator
   if (env.llm.provider === "fake") {
     return generateFakeSql(question);
+  }
+  // If configured for Gemini, call Google Gemini
+  if (env.llm.provider === "gemini") {
+    if (!env.llm.apiKey) {
+      throw new Error(
+        "GEMINI_API_KEY is required in .env when LLM_PROVIDER is 'gemini'"
+      );
+    }
+    return generateGeminiSql(question, env.llm.apiKey);
   }
   // If configured for Anthropic, call Claude
   if (env.llm.provider === "anthropic") {
