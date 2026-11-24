@@ -7,11 +7,15 @@ const schema = z
     PGPORT: z.coerce.number().int().positive(),
     QP_APP_PASSWORD: z.string().min(1),
     QP_READER_PASSWORD: z.string().min(1),
-    LLM_PROVIDER: z.enum(["fake", "anthropic"]).default("fake"),
+    LLM_PROVIDER: z.enum(["fake", "anthropic", "gemini"]).default("fake"),
     ANTHROPIC_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
   })
   .refine((e) => e.LLM_PROVIDER !== "anthropic" || !!e.ANTHROPIC_API_KEY, {
     path: ["ANTHROPIC_API_KEY"],
+  })
+  .refine((e) => e.LLM_PROVIDER !== "gemini" || !!e.GEMINI_API_KEY, {
+    path: ["GEMINI_API_KEY"],
   });
 
 export type Env = ReturnType<typeof parseEnv>;
@@ -28,6 +32,9 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
   return {
     appDb: { ...server, database: "qp_app", user: "qp_app", password: e.QP_APP_PASSWORD },
     readerDb: { ...server, database: "qp_sales", user: "qp_reader", password: e.QP_READER_PASSWORD },
-    llm: { provider: e.LLM_PROVIDER, apiKey: e.ANTHROPIC_API_KEY },
+    llm: {
+      provider: e.LLM_PROVIDER,
+      apiKey: e.LLM_PROVIDER === "gemini" ? e.GEMINI_API_KEY : e.ANTHROPIC_API_KEY,
+    },
   };
 }
