@@ -113,91 +113,63 @@ async function generateAnthropicSql(
 // REAL GOOGLE GEMINI LLM CALLER (Free Tier Supported)
 // ============================================================================
 
-// Candidate models to try in order if one is experiencing high demand (503)
-const GEMINI_CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.8-flash-lite",
-  "gemini-flash-latest",
-];
-
 /**
  * Calls the Google Gemini API using native Node.js fetch.
- * Includes automatic retry and fallback if Google returns 503 (high demand).
+ * Uses gemini-flash-lite-latest: the fastest, lowest-quota model on the free tier.
  */
 async function generateGeminiSql(
   question: string,
   apiKey: string
 ): Promise<GeneratedSqlResponse> {
   const userContent = buildUserPrompt(question);
-  let lastError: Error | null = null;
 
-  // Try candidate models in order
-  for (const model of GEMINI_CANDIDATE_MODELS) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  // Use gemini-flash-lite-latest for fast, low-quota responses on free API keys
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`;
 
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            system_instruction: {
-              parts: [{ text: SYSTEM_PROMPT }],
-            },
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: userContent }],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.1,
-            },
-          }),
-        });
+  const response = await fetch(endpoint, {
+    method: "POST",
+    signal: AbortSignal.timeout(10000), // 10s timeout prevents the button from spinning forever
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      system_instruction: {
+        parts: [{ text: SYSTEM_PROMPT }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userContent }],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.1,
+      },
+    }),
+  });
 
-        // If Google is experiencing temporary high demand (503) or rate limit (429), back off and retry
-        if (response.status === 503 || response.status === 429) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          continue;
-        }
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(
-            `Gemini API (${model}) failed with status ${response.status}: ${errorBody}`
-          );
-        }
-
-        const data = (await response.json()) as {
-          candidates?: Array<{
-            content?: {
-              parts?: Array<{ text?: string }>;
-            };
-          }>;
-        };
-
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) {
-          throw new Error("Gemini API returned an empty response content");
-        }
-
-        return cleanAndParseJsonResponse(rawText);
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Gemini API request failed with status ${response.status}: ${errorBody}`
+    );
   }
 
-  throw (
-    lastError ||
-    new Error(
-      "Gemini is currently experiencing high demand. Please retry in a few moments."
-    )
-  );
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>;
+      };
+    }>;
+  };
+
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) {
+    throw new Error("Gemini API returned an empty response content");
+  }
+
+  return cleanAndParseJsonResponse(rawText);
 }
 
 export async function generateSql(question: string): Promise<GeneratedSqlResponse> {
